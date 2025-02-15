@@ -21,13 +21,22 @@ import {
 } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import {
   AlertTriangle,
   MessageSquareText,
   Loader2,
   AlertCircle,
   CheckCircle2,
+  Ambulance,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 type HealthAdvice = {
   advice: string;
@@ -39,8 +48,14 @@ type FormData = {
   symptoms: string;
 };
 
+type EmergencyFormData = {
+  location: string;
+  details: string;
+};
+
 export default function HealthAssistant() {
   const [lastResponse, setLastResponse] = useState<HealthAdvice>();
+  const [showEmergencyForm, setShowEmergencyForm] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<FormData>({
@@ -49,15 +64,18 @@ export default function HealthAssistant() {
     },
   });
 
+  const emergencyForm = useForm<EmergencyFormData>({
+    defaultValues: {
+      location: "",
+      details: "",
+    },
+  });
+
   const getAdvice = useMutation({
     mutationFn: async (data: FormData) => {
       const res = await apiRequest("POST", "/api/health-advice", data);
       if (!res.ok) {
         const error = await res.json();
-        // Handle rate limit errors specifically
-        if (res.status === 429) {
-          throw new Error("We're experiencing high traffic. Please try again in a few minutes.");
-        }
         throw new Error(error.message || "Failed to get health advice");
       }
       return res.json() as Promise<HealthAdvice>;
@@ -68,6 +86,31 @@ export default function HealthAssistant() {
     onError: (error: Error) => {
       toast({
         title: "Could not get health advice",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const requestEmergency = useMutation({
+    mutationFn: async (data: EmergencyFormData) => {
+      const res = await apiRequest("POST", "/api/emergency", data);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to request emergency services");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Emergency services notified",
+        description: `${data.message}. ETA: ${data.estimatedArrival}`,
+      });
+      setShowEmergencyForm(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to request emergency services",
         description: error.message,
         variant: "destructive",
       });
@@ -93,6 +136,18 @@ export default function HealthAssistant() {
 
       <main className="pl-64 p-8">
         <div className="max-w-3xl mx-auto">
+          {/* Emergency Services Button */}
+          <div className="mb-8">
+            <Button
+              variant="destructive"
+              className="w-full"
+              onClick={() => setShowEmergencyForm(true)}
+            >
+              <Ambulance className="mr-2 h-5 w-5" />
+              Request Emergency Services
+            </Button>
+          </div>
+
           <Card className="mb-8">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -100,7 +155,7 @@ export default function HealthAssistant() {
                 Health Assistant
               </CardTitle>
               <CardDescription>
-                Describe your symptoms to get AI-powered health advice
+                Describe your symptoms to get health advice
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -198,6 +253,74 @@ export default function HealthAssistant() {
           )}
         </div>
       </main>
+
+      {/* Emergency Services Dialog */}
+      <Dialog open={showEmergencyForm} onOpenChange={setShowEmergencyForm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center text-red-600 flex items-center justify-center gap-2">
+              <Ambulance className="h-6 w-6" />
+              Request Emergency Services
+            </DialogTitle>
+          </DialogHeader>
+          <Form {...emergencyForm}>
+            <form
+              onSubmit={emergencyForm.handleSubmit((data) =>
+                requestEmergency.mutate(data)
+              )}
+              className="space-y-4"
+            >
+              <FormField
+                control={emergencyForm.control}
+                name="location"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Your Location</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Enter your current address"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={emergencyForm.control}
+                name="details"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Emergency Details</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Describe the emergency situation"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button
+                type="submit"
+                variant="destructive"
+                className="w-full"
+                disabled={requestEmergency.isPending}
+              >
+                {requestEmergency.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Requesting Emergency Services...
+                  </>
+                ) : (
+                  "Request Emergency Services Now"
+                )}
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

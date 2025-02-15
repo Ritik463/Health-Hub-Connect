@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { insertAppointmentSchema } from "@shared/schema";
-import { getHealthAdvice } from "./openai";
+import { getHealthAdvice } from "./health-advisor";
 
 export function registerRoutes(app: Express): Server {
   setupAuth(app);
@@ -54,12 +54,31 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
-      const advice = await getHealthAdvice(symptoms);
+      const advice = getHealthAdvice(symptoms);
       res.json(advice);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'An unknown error occurred';
       res.status(500).json({ message });
     }
+  });
+
+  // Request emergency services
+  app.post("/api/emergency", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const { location, details } = req.body;
+    if (!location || !details) {
+      return res.status(400).json({ message: "Location and emergency details are required" });
+    }
+
+    // In a real application, this would integrate with an emergency services API
+    // For demo purposes, we'll simulate a successful request
+    res.json({
+      message: "Emergency services have been notified",
+      estimatedArrival: "10-15 minutes",
+      emergencyId: Date.now().toString(),
+      instructions: "Stay calm. Emergency services are on their way. If possible, send someone to guide the ambulance to your exact location."
+    });
   });
 
   const httpServer = createServer(app);
