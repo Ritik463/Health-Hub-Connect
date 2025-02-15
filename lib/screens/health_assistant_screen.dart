@@ -22,27 +22,31 @@ class _HealthAssistantScreenState extends State<HealthAssistantScreen> {
     });
 
     try {
-      // Using the free HuggingFace Inference API with a medical model
+      // Using HuggingFace's free medical model
       final response = await http.post(
-        Uri.parse('https://api-inference.huggingface.co/models/medical-qa-model'),
+        Uri.parse('https://api-inference.huggingface.co/models/microsoft/BioGPT'),
         headers: {
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
-          'inputs': _symptomsController.text,
+          'inputs': 'Given these symptoms: ${_symptomsController.text}, what could be the possible cause and what should I do? Provide a clear and concise response.',
         }),
       );
 
       if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
         setState(() {
-          _response = jsonDecode(response.body)[0]['generated_text'];
+          _response = data[0]['generated_text'];
         });
       } else {
         throw Exception('Failed to get health advice');
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
+        const SnackBar(
+          content: Text('Unable to get health advice. Please try again later.'),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       setState(() {
@@ -55,53 +59,114 @@ class _HealthAssistantScreenState extends State<HealthAssistantScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Health Assistant'),
+        title: const Text('AI Health Assistant'),
+        centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Describe your symptoms',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _symptomsController,
-              maxLines: 4,
-              decoration: InputDecoration(
-                hintText: 'E.g. I have a headache and fever...',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Describe Your Symptoms',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Provide details about how you\'re feeling',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _symptomsController,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        hintText: 'E.g. I have a headache and fever...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: Theme.of(context).colorScheme.outline,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: Theme.of(context).colorScheme.primary,
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: CustomButton(
+                        onPressed: _isLoading ? null : _getHealthAdvice,
+                        text: _isLoading ? 'Getting Advice...' : 'Get Health Advice',
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(height: 24),
-            CustomButton(
-              onPressed: _isLoading ? null : () => _getHealthAdvice(),
-              text: _isLoading ? 'Getting Advice...' : 'Get Health Advice',
-            ),
             if (_response != null) ...[
-              const SizedBox(height: 32),
+              const SizedBox(height: 20),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Recommendation:',
-                        style: Theme.of(context).textTheme.titleMedium,
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.medical_services_outlined,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'AI Health Advice',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 16),
                       Text(_response!),
                       const SizedBox(height: 16),
-                      const Text(
-                        'Note: This is AI-generated advice and should not replace professional medical consultation.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.errorContainer.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.warning_amber_rounded,
+                              color: Theme.of(context).colorScheme.error,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'This is AI-generated advice and should not replace professional medical consultation.',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Theme.of(context).colorScheme.error,
+                                    ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
