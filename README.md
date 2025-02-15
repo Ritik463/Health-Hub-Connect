@@ -36,6 +36,7 @@ flutter pub get
 ```bash
 flutter run
 ```
+![HealthHubConnect UI](https://github.com/Ritik463/Health-Hub-Connect/raw/main/Screenshot%202025-02-15%20151741.png)
 
 ## Usage
 
