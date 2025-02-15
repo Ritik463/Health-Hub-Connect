@@ -1,4 +1,4 @@
-// Simple symptom analyzer without external API dependencies
+// Advanced health monitoring and advice system
 type Severity = "low" | "medium" | "high";
 
 interface HealthAdvice {
@@ -7,7 +7,74 @@ interface HealthAdvice {
   seekMedicalAttention: boolean;
 }
 
-// Basic symptom analysis logic
+interface WaterIntake {
+  amount: number; // in ml
+  timestamp: Date;
+}
+
+interface HealthMetrics {
+  sleep: number; // hours
+  steps: number;
+  mood: 'excellent' | 'good' | 'fair' | 'poor';
+  waterIntake: WaterIntake[];
+}
+
+const healthTips = [
+  "Take breaks every hour when working at a desk to reduce eye strain and improve circulation.",
+  "Practice deep breathing exercises to reduce stress and improve focus.",
+  "Maintain good posture throughout the day to prevent back pain.",
+  "Stay hydrated! Aim to drink water before you feel thirsty.",
+  "Get at least 7-8 hours of sleep each night for optimal health.",
+  "Take a short walk after meals to aid digestion and maintain blood sugar levels.",
+  "Practice mindfulness or meditation to improve mental well-being.",
+  "Eat a variety of colorful fruits and vegetables daily.",
+  "Stretch regularly to maintain flexibility and prevent muscle tension.",
+  "Regular hand washing is one of the best ways to prevent illness."
+];
+
+function getDailyWaterTarget(weight: number, activityLevel: 'low' | 'moderate' | 'high'): number {
+  // Calculate daily water intake target in ml
+  const baseIntake = weight * 30; // 30ml per kg of body weight
+  const activityMultiplier = {
+    low: 1,
+    moderate: 1.2,
+    high: 1.4
+  };
+  return Math.round(baseIntake * activityMultiplier[activityLevel]);
+}
+
+function getWaterIntakeAdvice(metrics: HealthMetrics): string {
+  const todayIntake = metrics.waterIntake
+    .filter(intake => {
+      const today = new Date();
+      const intakeDate = new Date(intake.timestamp);
+      return (
+        intakeDate.getDate() === today.getDate() &&
+        intakeDate.getMonth() === today.getMonth() &&
+        intakeDate.getFullYear() === today.getFullYear()
+      );
+    })
+    .reduce((total, intake) => total + intake.amount, 0);
+
+  const target = 2500; // Default target: 2.5L
+  const progress = (todayIntake / target) * 100;
+
+  if (progress < 30) {
+    return "You're significantly behind on your water intake. Try to drink a glass of water now.";
+  } else if (progress < 60) {
+    return "You're about halfway to your daily water goal. Keep drinking regularly!";
+  } else if (progress < 90) {
+    return "Good progress on water intake! A few more glasses to reach your goal.";
+  } else {
+    return "Excellent! You've met your daily water intake goal.";
+  }
+}
+
+function getRandomTip(): string {
+  return healthTips[Math.floor(Math.random() * healthTips.length)];
+}
+
+// Original symptom analysis logic remains the same
 function analyzeSymptoms(symptoms: string): HealthAdvice {
   const symptomsLower = symptoms.toLowerCase();
 
@@ -41,7 +108,6 @@ function analyzeSymptoms(symptoms: string): HealthAdvice {
     }
   ];
 
-  // Check for emergency conditions first
   const hasEmergencySymptoms = emergencyKeywords.some(keyword => 
     symptomsLower.includes(keyword)
   );
@@ -54,25 +120,21 @@ function analyzeSymptoms(symptoms: string): HealthAdvice {
     };
   }
 
-  // Check for moderate conditions and provide specific advice
   for (const condition of moderateConditions) {
     if (condition.keywords.some(keyword => symptomsLower.includes(keyword))) {
       return {
         severity: "medium",
         seekMedicalAttention: true,
-        advice: condition.advice
+        advice: condition.advice + "\n\n" + getRandomTip()
       };
     }
   }
 
-  // If no specific conditions are matched, provide general advice
   return {
     severity: "low",
     seekMedicalAttention: false,
-    advice: `Based on your symptoms (${symptoms}), your condition appears mild. Rest, stay hydrated, and monitor your symptoms. If they persist or worsen after 24-48 hours, consult a healthcare provider. Consider over-the-counter medications appropriate for your specific symptoms.`
+    advice: `Based on your symptoms (${symptoms}), your condition appears mild. Rest, stay hydrated, and monitor your symptoms. If they persist or worsen after 24-48 hours, consult a healthcare provider.\n\nHealth Tip: ${getRandomTip()}`
   };
 }
 
-export function getHealthAdvice(symptoms: string): HealthAdvice {
-  return analyzeSymptoms(symptoms);
-}
+export { analyzeSymptoms as getHealthAdvice, getRandomTip, getWaterIntakeAdvice };

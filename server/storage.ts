@@ -3,6 +3,13 @@ import session from "express-session";
 import createMemoryStore from "memorystore";
 const MemoryStore = createMemoryStore(session);
 
+interface WaterIntake {
+  id: number;
+  userId: number;
+  amount: number;
+  timestamp: Date;
+}
+
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -11,6 +18,8 @@ export interface IStorage {
   getDoctor(id: number): Promise<Doctor | undefined>;
   createAppointment(appointment: Omit<Appointment, "id">): Promise<Appointment>;
   getUserAppointments(userId: number): Promise<Appointment[]>;
+  addWaterIntake(userId: number, amount: number): Promise<WaterIntake>;
+  getWaterIntakeHistory(userId: number): Promise<{ todayTotal: number, history: WaterIntake[] }>;
   sessionStore: session.Store;
 }
 
@@ -18,6 +27,7 @@ export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private doctors: Map<number, Doctor>;
   private appointments: Map<number, Appointment>;
+  private waterIntakes: Map<number, WaterIntake>;
   private currentId: number;
   sessionStore: session.Store;
 
@@ -25,6 +35,7 @@ export class MemStorage implements IStorage {
     this.users = new Map();
     this.doctors = new Map();
     this.appointments = new Map();
+    this.waterIntakes = new Map();
     this.currentId = 1;
     this.sessionStore = new MemoryStore({ checkPeriod: 86400000 });
 
@@ -81,6 +92,41 @@ export class MemStorage implements IStorage {
     return Array.from(this.appointments.values()).filter(
       (appointment) => appointment.userId === userId
     );
+  }
+
+  async addWaterIntake(userId: number, amount: number): Promise<WaterIntake> {
+    const id = this.currentId++;
+    const waterIntake = {
+      id,
+      userId,
+      amount,
+      timestamp: new Date()
+    };
+    this.waterIntakes.set(id, waterIntake);
+    return waterIntake;
+  }
+
+  async getWaterIntakeHistory(userId: number): Promise<{ todayTotal: number, history: WaterIntake[] }> {
+    const today = new Date();
+    const history = Array.from(this.waterIntakes.values()).filter(
+      (intake) => intake.userId === userId
+    );
+
+    const todayTotal = history
+      .filter(intake => {
+        const intakeDate = new Date(intake.timestamp);
+        return (
+          intakeDate.getDate() === today.getDate() &&
+          intakeDate.getMonth() === today.getMonth() &&
+          intakeDate.getFullYear() === today.getFullYear()
+        );
+      })
+      .reduce((total, intake) => total + intake.amount, 0);
+
+    return {
+      todayTotal,
+      history: history.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+    };
   }
 }
 

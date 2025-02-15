@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { insertAppointmentSchema } from "@shared/schema";
-import { getHealthAdvice } from "./health-advisor";
+import { getHealthAdvice, getRandomTip } from "./health-advisor";
 
 export function registerRoutes(app: Express): Server {
   setupAuth(app);
@@ -58,6 +58,44 @@ export function registerRoutes(app: Express): Server {
       res.json(advice);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'An unknown error occurred';
+      res.status(500).json({ message });
+    }
+  });
+
+  // Get daily health tip
+  app.get("/api/health-tip", (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const tip = getRandomTip();
+    res.json({ tip });
+  });
+
+  // Track water intake
+  app.post("/api/water-intake", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const { amount } = req.body;
+    if (!amount || typeof amount !== 'number') {
+      return res.status(400).json({ message: "Valid amount in milliliters is required" });
+    }
+
+    try {
+      const waterIntake = await storage.addWaterIntake(req.user.id, amount);
+      res.status(201).json(waterIntake);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to track water intake';
+      res.status(500).json({ message });
+    }
+  });
+
+  // Get water intake history
+  app.get("/api/water-intake", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      const history = await storage.getWaterIntakeHistory(req.user.id);
+      res.json(history);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to get water intake history';
       res.status(500).json({ message });
     }
   });

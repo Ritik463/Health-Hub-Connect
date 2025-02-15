@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import NavSidebar from "@/components/nav-sidebar";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { apiRequest } from "@/lib/queryClient";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -29,6 +29,8 @@ import {
   AlertCircle,
   CheckCircle2,
   Ambulance,
+  Droplet,
+  Trophy,
 } from "lucide-react";
 import {
   Dialog,
@@ -37,6 +39,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
 
 type HealthAdvice = {
   advice: string;
@@ -53,9 +56,14 @@ type EmergencyFormData = {
   details: string;
 };
 
+type WaterIntakeFormData = {
+  amount: number;
+};
+
 export default function HealthAssistant() {
   const [lastResponse, setLastResponse] = useState<HealthAdvice>();
   const [showEmergencyForm, setShowEmergencyForm] = useState(false);
+  const [showWaterIntakeForm, setShowWaterIntakeForm] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<FormData>({
@@ -69,6 +77,22 @@ export default function HealthAssistant() {
       location: "",
       details: "",
     },
+  });
+
+  const waterIntakeForm = useForm<WaterIntakeFormData>({
+    defaultValues: {
+      amount: 250, // Default to 250ml (a glass of water)
+    },
+  });
+
+  // Fetch daily health tip
+  const { data: healthTip } = useQuery({
+    queryKey: ["/api/health-tip"],
+  });
+
+  // Fetch water intake history
+  const { data: waterIntake, refetch: refetchWaterIntake } = useQuery({
+    queryKey: ["/api/water-intake"],
   });
 
   const getAdvice = useMutation({
@@ -86,6 +110,32 @@ export default function HealthAssistant() {
     onError: (error: Error) => {
       toast({
         title: "Could not get health advice",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const addWaterIntake = useMutation({
+    mutationFn: async (data: WaterIntakeFormData) => {
+      const res = await apiRequest("POST", "/api/water-intake", data);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to track water intake");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Water intake tracked",
+        description: "Keep staying hydrated!",
+      });
+      setShowWaterIntakeForm(false);
+      refetchWaterIntake();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to track water intake",
         description: error.message,
         variant: "destructive",
       });
@@ -117,6 +167,18 @@ export default function HealthAssistant() {
     },
   });
 
+  // Water intake reminder effect
+  useEffect(() => {
+    const reminderInterval = setInterval(() => {
+      toast({
+        title: "Water Intake Reminder",
+        description: "Stay hydrated! Time to drink some water.",
+      });
+    }, 3600000); // Remind every hour
+
+    return () => clearInterval(reminderInterval);
+  }, [toast]);
+
   function getSeverityColor(severity: "low" | "medium" | "high") {
     switch (severity) {
       case "low":
@@ -128,6 +190,12 @@ export default function HealthAssistant() {
       default:
         return "text-muted-foreground";
     }
+  }
+
+  function calculateWaterProgress() {
+    if (!waterIntake?.todayTotal) return 0;
+    const dailyGoal = 2500; // 2.5L daily goal
+    return Math.min((waterIntake.todayTotal / dailyGoal) * 100, 100);
   }
 
   return (
@@ -148,6 +216,50 @@ export default function HealthAssistant() {
             </Button>
           </div>
 
+          {/* Health Tracking Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Droplet className="h-5 w-5 text-blue-500" />
+                  Water Intake
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <Progress value={calculateWaterProgress()} className="h-2" />
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>{waterIntake?.todayTotal || 0}ml</span>
+                    <span>Goal: 2500ml</span>
+                  </div>
+                  <Button
+                    onClick={() => setShowWaterIntakeForm(true)}
+                    className="w-full"
+                    variant="outline"
+                  >
+                    <Droplet className="mr-2 h-4 w-4" />
+                    Add Water Intake
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trophy className="h-5 w-5 text-yellow-500" />
+                  Daily Health Tip
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  {healthTip?.tip || "Loading health tip..."}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Health Assistant Card */}
           <Card className="mb-8">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -315,6 +427,84 @@ export default function HealthAssistant() {
                   </>
                 ) : (
                   "Request Emergency Services Now"
+                )}
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Water Intake Dialog */}
+      <Dialog open={showWaterIntakeForm} onOpenChange={setShowWaterIntakeForm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center flex items-center justify-center gap-2">
+              <Droplet className="h-6 w-6 text-blue-500" />
+              Track Water Intake
+            </DialogTitle>
+          </DialogHeader>
+          <Form {...waterIntakeForm}>
+            <form
+              onSubmit={waterIntakeForm.handleSubmit((data) =>
+                addWaterIntake.mutate(data)
+              )}
+              className="space-y-4"
+            >
+              <FormField
+                control={waterIntakeForm.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Amount (ml)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="50"
+                        {...field}
+                        onChange={(e) =>
+                          field.onChange(parseInt(e.target.value))
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() =>
+                    waterIntakeForm.setValue("amount", 250)
+                  }
+                >
+                  Glass (250ml)
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() =>
+                    waterIntakeForm.setValue("amount", 500)
+                  }
+                >
+                  Bottle (500ml)
+                </Button>
+              </div>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={addWaterIntake.isPending}
+              >
+                {addWaterIntake.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Tracking...
+                  </>
+                ) : (
+                  "Track Water Intake"
                 )}
               </Button>
             </form>
