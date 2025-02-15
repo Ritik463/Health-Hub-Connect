@@ -52,6 +52,14 @@ export default function HealthAssistant() {
   const getAdvice = useMutation({
     mutationFn: async (data: FormData) => {
       const res = await apiRequest("POST", "/api/health-advice", data);
+      if (!res.ok) {
+        const error = await res.json();
+        // Handle rate limit errors specifically
+        if (res.status === 429) {
+          throw new Error("We're experiencing high traffic. Please try again in a few minutes.");
+        }
+        throw new Error(error.message || "Failed to get health advice");
+      }
       return res.json() as Promise<HealthAdvice>;
     },
     onSuccess: (data) => {
@@ -59,7 +67,7 @@ export default function HealthAssistant() {
     },
     onError: (error: Error) => {
       toast({
-        title: "Error",
+        title: "Could not get health advice",
         description: error.message,
         variant: "destructive",
       });

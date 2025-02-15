@@ -9,27 +9,45 @@ export async function getHealthAdvice(symptoms: string): Promise<{
   seekMedicalAttention: boolean;
 }> {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: "You are a helpful medical AI assistant. Provide general health advice based on symptoms. Always encourage users to seek professional medical help for serious concerns. Format response as JSON with fields: advice (string), severity (low/medium/high), seekMedicalAttention (boolean)."
-        },
-        {
-          role: "user",
-          content: `What advice can you give for these symptoms: ${symptoms}`
+    // Add exponential backoff retry logic
+    let retries = 3;
+    let delay = 1000; // Start with 1 second delay
+
+    while (retries > 0) {
+      try {
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: "You are a helpful medical AI assistant. Provide general health advice based on symptoms. Always encourage users to seek professional medical help for serious concerns. Format response as JSON with fields: advice (string), severity (low/medium/high), seekMedicalAttention (boolean)."
+            },
+            {
+              role: "user",
+              content: `What advice can you give for these symptoms: ${symptoms}`
+            }
+          ],
+          response_format: { type: "json_object" }
+        });
+
+        const content = response.choices[0].message.content;
+        if (!content) {
+          throw new Error("No response received from OpenAI");
         }
-      ],
-      response_format: { type: "json_object" }
-    });
 
-    const content = response.choices[0].message.content;
-    if (!content) {
-      throw new Error("No response received from OpenAI");
+        return JSON.parse(content);
+      } catch (error: any) {
+        if (error?.response?.status === 429) {
+          // Rate limit hit - wait and retry
+          await new Promise(resolve => setTimeout(resolve, delay));
+          delay *= 2; // Exponential backoff
+          retries--;
+          continue;
+        }
+        throw error; // Re-throw if it's not a rate limit error
+      }
     }
-
-    return JSON.parse(content);
+    throw new Error("Rate limit exceeded. Please try again in a few minutes.");
   } catch (error: unknown) {
     if (error instanceof Error) {
       throw new Error("Failed to get health advice: " + error.message);

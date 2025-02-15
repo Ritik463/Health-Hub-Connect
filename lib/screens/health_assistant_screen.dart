@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:math';
 import '../widgets/custom_button.dart';
 
 class HealthAssistantScreen extends StatefulWidget {
@@ -14,38 +15,73 @@ class _HealthAssistantScreenState extends State<HealthAssistantScreen> {
   final TextEditingController _symptomsController = TextEditingController();
   String? _response;
   bool _isLoading = false;
+  int _retryAttempts = 0;
+  static const maxRetries = 3;
 
   Future<void> _getHealthAdvice() async {
+    if (_symptomsController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please describe your symptoms first'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _response = null;
     });
 
     try {
-      // Using HuggingFace's free medical model
       final response = await http.post(
-        Uri.parse('https://api-inference.huggingface.co/models/microsoft/BioGPT'),
+        Uri.parse('/api/health-advice'),
         headers: {
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
-          'inputs': 'Given these symptoms: ${_symptomsController.text}, what could be the possible cause and what should I do? Provide a clear and concise response.',
+          'symptoms': _symptomsController.text,
         }),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
-          _response = data[0]['generated_text'];
+          _response = data['advice'];
+          _retryAttempts = 0; // Reset retry counter on success
         });
+      } else if (response.statusCode == 429 && _retryAttempts < maxRetries) {
+        // Handle rate limiting with exponential backoff
+        _retryAttempts++;
+        final waitTime = Duration(seconds: pow(2, _retryAttempts).toInt());
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Service is busy. Retrying in ${waitTime.inSeconds} seconds...'),
+            duration: waitTime,
+          ),
+        );
+
+        await Future.delayed(waitTime);
+        await _getHealthAdvice(); // Retry the request
+        return;
       } else {
-        throw Exception('Failed to get health advice');
+        final error = jsonDecode(response.body);
+        throw Exception(error['message'] ?? 'Failed to get health advice');
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to get health advice. Please try again later.'),
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+          action: _retryAttempts < maxRetries
+            ? SnackBarAction(
+                label: 'Retry',
+                onPressed: _getHealthAdvice,
+              )
+            : null,
         ),
       );
     } finally {
@@ -113,7 +149,9 @@ class _HealthAssistantScreenState extends State<HealthAssistantScreen> {
                       width: double.infinity,
                       child: CustomButton(
                         onPressed: _isLoading ? null : _getHealthAdvice,
-                        text: _isLoading ? 'Getting Advice...' : 'Get Health Advice',
+                        text: _isLoading
+                          ? 'Getting Advice${_retryAttempts > 0 ? ' (Retry ${_retryAttempts}/${maxRetries})' : ''}...'
+                          : 'Get Health Advice',
                       ),
                     ),
                   ],
