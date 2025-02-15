@@ -13,13 +13,19 @@ class HealthcareApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Healthcare App',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
+        useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF1E88E5),
           brightness: Brightness.light,
         ),
-        useMaterial3: true,
-        textTheme: GoogleFonts.poppinsTextTheme(),
+        textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme),
+        appBarTheme: const AppBarTheme(
+          centerTitle: true,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+        ),
       ),
       home: const LoginScreen(),
     );
