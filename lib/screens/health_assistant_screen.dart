@@ -58,7 +58,8 @@ class _HealthAssistantScreenState extends State<HealthAssistantScreen> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Service is busy. Retrying in ${waitTime.inSeconds} seconds...'),
+            content: Text(
+                'Service is busy. Retrying in ${waitTime.inSeconds} seconds...'),
             duration: waitTime,
           ),
         );
@@ -77,11 +78,11 @@ class _HealthAssistantScreenState extends State<HealthAssistantScreen> {
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 5),
           action: _retryAttempts < maxRetries
-            ? SnackBarAction(
-                label: 'Retry',
-                onPressed: _getHealthAdvice,
-              )
-            : null,
+              ? SnackBarAction(
+                  label: 'Retry',
+                  onPressed: _getHealthAdvice,
+                )
+              : null,
         ),
       );
     } finally {
@@ -117,7 +118,8 @@ class _HealthAssistantScreenState extends State<HealthAssistantScreen> {
                     Text(
                       'Provide details about how you\'re feeling',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                     ),
                     const SizedBox(height: 16),
@@ -150,8 +152,8 @@ class _HealthAssistantScreenState extends State<HealthAssistantScreen> {
                       child: CustomButton(
                         onPressed: _isLoading ? null : _getHealthAdvice,
                         text: _isLoading
-                          ? 'Getting Advice${_retryAttempts > 0 ? ' (Retry ${_retryAttempts}/${maxRetries})' : ''}...'
-                          : 'Get Health Advice',
+                            ? 'Getting Advice${_retryAttempts > 0 ? ' (Retry $_retryAttempts/$maxRetries)' : ''}...'
+                            : 'Get Health Advice',
                       ),
                     ),
                   ],
@@ -185,7 +187,10 @@ class _HealthAssistantScreenState extends State<HealthAssistantScreen> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.errorContainer.withOpacity(0.1),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .errorContainer
+                              .withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
@@ -199,8 +204,12 @@ class _HealthAssistantScreenState extends State<HealthAssistantScreen> {
                             Expanded(
                               child: Text(
                                 'This is AI-generated advice and should not replace professional medical consultation.',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Theme.of(context).colorScheme.error,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color:
+                                          Theme.of(context).colorScheme.error,
                                     ),
                               ),
                             ),

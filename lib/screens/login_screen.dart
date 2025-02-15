@@ -64,12 +64,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 16),
                   if (!_isLogin) ...[
-                    CustomTextField(
+                    const CustomTextField(
                       label: 'Full Name',
                       prefixIcon: Icons.person,
                     ),
                     const SizedBox(height: 16),
-                    CustomTextField(
+                    const CustomTextField(
                       label: 'Email',
                       prefixIcon: Icons.email_outlined,
                       keyboardType: TextInputType.emailAddress,
