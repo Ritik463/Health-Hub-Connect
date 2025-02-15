@@ -1,0 +1,12 @@
+/home/runner/workspace/build/linux/x64/debug/bundle/workspace
+/home/runner/workspace/build/linux/x64/debug/bundle/data/icudtl.dat
+/home/runner/workspace/build/linux/x64/debug/bundle/lib/libflutter_linux_gtk.so
+/home/runner/workspace/build/linux/x64/debug/bundle/data/flutter_assets/kernel_blob.bin
+/home/runner/workspace/build/linux/x64/debug/bundle/data/flutter_assets/packages/cupertino_icons/assets/CupertinoIcons.ttf
+/home/runner/workspace/build/linux/x64/debug/bundle/data/flutter_assets/fonts/MaterialIcons-Regular.otf
+/home/runner/workspace/build/linux/x64/debug/bundle/data/flutter_assets/shaders/ink_sparkle.frag
+/home/runner/workspace/build/linux/x64/debug/bundle/data/flutter_assets/AssetManifest.json
+/home/runner/workspace/build/linux/x64/debug/bundle/data/flutter_assets/AssetManifest.bin
+/home/runner/workspace/build/linux/x64/debug/bundle/data/flutter_assets/FontManifest.json
+/home/runner/workspace/build/linux/x64/debug/bundle/data/flutter_assets/NOTICES.Z
+/home/runner/workspace/build/linux/x64/debug/bundle/data/flutter_assets/version.json
