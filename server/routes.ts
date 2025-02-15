@@ -1,9 +1,13 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { WebSocketServer, WebSocket } from 'ws';
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { insertAppointmentSchema } from "@shared/schema";
 import { getHealthAdvice, getRandomTip } from "./health-advisor";
+
+// Keep track of connected clients
+const clients = new Map<number, WebSocket>();
 
 export function registerRoutes(app: Express): Server {
   setupAuth(app);
@@ -41,6 +45,19 @@ export function registerRoutes(app: Express): Server {
       ...parsed.data,
       userId: req.user.id,
     });
+
+    // Send notification to the user about the new appointment
+    const userSocket = clients.get(req.user.id);
+    if (userSocket?.readyState === WebSocket.OPEN) {
+      userSocket.send(JSON.stringify({
+        type: 'appointment_created',
+        data: {
+          message: 'New appointment scheduled successfully',
+          appointment
+        }
+      }));
+    }
+
     res.status(201).json(appointment);
   });
 
@@ -120,5 +137,65 @@ export function registerRoutes(app: Express): Server {
   });
 
   const httpServer = createServer(app);
+
+  // Set up WebSocket server
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+
+  wss.on('connection', (ws, req) => {
+    if (!req.url) return;
+
+    // Extract user ID from the URL
+    const userId = parseInt(req.url.split('=')[1]);
+    if (isNaN(userId)) {
+      ws.close();
+      return;
+    }
+
+    // Store the connection
+    clients.set(userId, ws);
+
+    // Send initial notification
+    ws.send(JSON.stringify({
+      type: 'connection_established',
+      data: { message: 'Connected to notification service' }
+    }));
+
+    // Handle client disconnect
+    ws.on('close', () => {
+      clients.delete(userId);
+    });
+
+    // Start appointment reminder checks for this user
+    checkUpcomingAppointments(userId);
+  });
+
+  // Function to check upcoming appointments
+  async function checkUpcomingAppointments(userId: number) {
+    setInterval(async () => {
+      const appointments = await storage.getUserAppointments(userId);
+      const now = new Date();
+
+      appointments.forEach(appointment => {
+        const appointmentTime = new Date(appointment.datetime);
+        const timeDiff = appointmentTime.getTime() - now.getTime();
+        const minutesUntilAppointment = Math.floor(timeDiff / (1000 * 60));
+
+        // Notify for appointments happening in 24 hours or less
+        if (minutesUntilAppointment <= 1440 && minutesUntilAppointment > 0) {
+          const userSocket = clients.get(userId);
+          if (userSocket?.readyState === WebSocket.OPEN) {
+            userSocket.send(JSON.stringify({
+              type: 'appointment_reminder',
+              data: {
+                message: `Upcoming appointment in ${minutesUntilAppointment} minutes`,
+                appointment
+              }
+            }));
+          }
+        }
+      });
+    }, 60000); // Check every minute
+  }
+
   return httpServer;
 }
